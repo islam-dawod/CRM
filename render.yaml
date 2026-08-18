@@ -1,0 +1,22 @@
+# Render Blueprint — deploys this CRM as a live web service.
+# https://render.com  →  New  →  Blueprint  →  point it at this repo.
+services:
+  - type: web
+    name: clinic-crm
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: echo "no build step — zero dependencies"
+    startCommand: node server/index.js
+    healthCheckPath: /api/auth/me
+    envVars:
+      - key: NODE_VERSION
+        value: 24.9.0
+      # Seeds reference data + demo leads on first boot so the URL is usable immediately.
+      # Set to 0 once you start entering real data.
+      - key: CRM_AUTO_SEED
+        value: "1"
+      # Render prompts for this at deploy time. Do NOT leave it as the demo password:
+      # the instance is public and anyone who knows the login can open it.
+      - key: CRM_SEED_PASSWORD
+        sync: false

@@ -1,0 +1,17 @@
+{
+  "name": "clinic-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CRM ללידים למרפאה — Leads CRM for clinics (zero-dependency Node.js + node:sqlite)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node server/seed.js",
+    "reset": "node server/seed.js --reset",
+    "smoke": "node scripts/smoke.js"
+  }
+}
