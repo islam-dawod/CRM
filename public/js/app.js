@@ -80,6 +80,9 @@ async function boot() {
 }
 
 // ---------------------------------------------------------------- login ---
+/** Demo credentials belong on a developer's machine, never on a public host. */
+const isLocal = () => ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
 function renderLogin(message = '') {
   const app = document.getElementById('app');
   app.className = '';
@@ -92,13 +95,14 @@ function renderLogin(message = '') {
         </div>
         <form id="login-form">
           <div class="field"><label>אימייל</label>
-            <input class="input" name="email" type="email" required autocomplete="username" value="admin@clinic.local"></div>
+            <input class="input" name="email" type="email" required autocomplete="username"
+                   value="${isLocal() ? 'admin@clinic.local' : ''}"></div>
           <div class="field"><label>סיסמה</label>
             <input class="input" name="password" type="password" required autocomplete="current-password" value=""></div>
           <div id="login-err" class="tiny" style="color:var(--red);min-height:18px">${esc(message)}</div>
           <button class="btn btn-primary btn-block" style="margin-top:8px" type="submit">כניסה</button>
         </form>
-        <div class="login-hint">חשבון דמו: admin@clinic.local · סיסמה 123456</div>
+        ${isLocal() ? '<div class="login-hint">חשבון דמו: admin@clinic.local · סיסמה 123456</div>' : ''}
       </div>
     </div>`;
   $('#login-form').addEventListener('submit', async (e) => {
