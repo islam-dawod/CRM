@@ -6,6 +6,8 @@
 
 > **One Customer → One Card → Everything Inside**
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/islam-dawod/CRM)
+
 ---
 
 ## הפעלה
