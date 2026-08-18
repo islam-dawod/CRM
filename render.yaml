@@ -8,6 +8,7 @@ services:
     region: frankfurt
     buildCommand: echo "no build step — zero dependencies"
     startCommand: node server/index.js
+    autoDeploy: true
     healthCheckPath: /api/auth/me
     envVars:
       - key: NODE_VERSION
