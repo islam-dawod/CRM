@@ -62,8 +62,10 @@ const server = createServer(async (req, res) => {
         throw notFound();
       }
       if (serveStatic(res, PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname)) return;
-      // SPA fallback (hash routing is used, but deep links should still work)
-      if (!pathname.startsWith('/api/') && serveStatic(res, PUBLIC_DIR, 'index.html')) return;
+      // SPA fallback for deep links only. A request that names a file (.png, .js…)
+      // must 404 — answering it with the HTML shell hides missing assets.
+      const looksLikeFile = /\.[a-z0-9]{2,5}$/i.test(pathname);
+      if (!looksLikeFile && !pathname.startsWith('/api/') && serveStatic(res, PUBLIC_DIR, 'index.html')) return;
     }
     throw notFound();
   } catch (err) {
