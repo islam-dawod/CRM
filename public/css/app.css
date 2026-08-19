@@ -84,7 +84,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* --------------------------------------------------------------- boot ---- */
 .app-boot, .boot { height: 100%; display: grid; place-items: center; }
-.boot-logo { font-size: 48px; margin-bottom: 16px; text-align: center; }
+.clinic-logo.boot-logo { max-width: 190px; margin: 0 auto 20px; }
 .spinner {
   width: 26px; height: 26px; border-radius: 50%;
   border: 3px solid var(--border); border-top-color: var(--brand);
@@ -95,14 +95,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* -------------------------------------------------------------- login ---- */
 .login-wrap {
   min-height: 100dvh; display: grid; place-items: center; padding: 20px;
-  background: radial-gradient(1200px 600px at 80% -10%, #0ea5e933, transparent),
-              radial-gradient(900px 500px at 0% 100%, #8b5cf629, transparent), var(--bg);
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(26,173,173,.22), transparent),
+              radial-gradient(900px 500px at 0% 100%, rgba(11,111,112,.16), transparent), var(--bg);
 }
 .login-card {
   width: 100%; max-width: 400px; background: var(--surface); border-radius: var(--r-lg);
   padding: 32px 28px; box-shadow: var(--shadow-lg); border: 1px solid var(--border);
 }
-.login-card h1 { font-size: 24px; margin-bottom: 4px; }
+.clinic-logo.login-logo { max-width: 210px; margin: 0 auto 18px; }
+.login-card h1 { font-size: 20px; margin-bottom: 4px; }
 .login-card .sub { color: var(--text-2); font-size: 14px; margin-bottom: 22px; }
 .login-hint {
   margin-top: 18px; font-size: 12.5px; color: var(--text-3); text-align: center;
@@ -116,7 +117,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   display: block; width: 100%; height: auto; max-width: 100%;
   object-fit: contain; object-position: center;
 }
-.brand-block { padding: 16px 16px 12px; text-align: center; }
+.brand-block {
+  padding: 16px 16px 12px; text-align: center; display: block; cursor: pointer;
+  border-radius: var(--r); transition: background .15s var(--ease);
+}
+.brand-block:hover { background: var(--surface-2); }
 .brand-block .clinic-logo { max-width: 168px; margin: 0 auto 8px; }
 .brand-block .brand-name { font-size: 15px; }
 .brand-block .brand-sub { font-size: 11.5px; color: var(--text-2); }
@@ -127,8 +132,43 @@ button, input, select, textarea { font: inherit; color: inherit; }
 html[data-theme="dark"] .brand-block .brand-crm { color: #6ee7e7; }
 html[data-theme="dark"] .clinic-logo { filter: brightness(0) invert(1); }
 
-.topbar-logo { height: 34px; width: auto; flex: none; }
-@media (max-width: 900px) { .topbar-logo { height: 28px; } }
+/* The top bar is a crowded flex row; without flex:none the link shrinks to zero
+   and squeezes the logo out of existence on narrow screens. */
+.topbar-logo-link { flex: none; display: flex; align-items: center; }
+.clinic-logo.topbar-logo { height: 34px; width: auto; max-width: none; flex: none; cursor: pointer; }
+@media (max-width: 900px) { .clinic-logo.topbar-logo { height: 26px; } }
+
+/* ------------------------------------------------- collapsed sidebar ------ */
+/* The rail scales the whole lockup down with object-fit:contain — a compact
+   version of the logo, never a cropped one. */
+.layout.collapsed { --sidebar: 78px; }
+.layout.collapsed .brand-block { padding: 14px 8px 10px; }
+.layout.collapsed .brand-block .clinic-logo { max-width: 58px; }
+.layout.collapsed .brand-name,
+.layout.collapsed .brand-sub,
+.layout.collapsed .brand-crm,
+.layout.collapsed .nav-group,
+.layout.collapsed .nav-item span:not(.ico):not(.nav-badge),
+.layout.collapsed .user-chip > div:not(.avatar),
+.layout.collapsed .user-chip > .spacer,
+.layout.collapsed .user-chip > span { display: none; }
+.layout.collapsed .nav-item { justify-content: center; padding: 11px 0; }
+.layout.collapsed .nav-item .ico { width: auto; font-size: 19px; }
+.layout.collapsed .nav-badge {
+  margin: 0; position: absolute; transform: translate(14px, -12px);
+  min-width: 17px; height: 17px; font-size: 10px;
+}
+.layout.collapsed .nav-item { position: relative; }
+.layout.collapsed .user-chip { justify-content: center; }
+.layout.collapsed .nav-group { display: none; }
+.sidebar-collapse {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px; margin: 0 10px 8px; border-radius: var(--r-sm);
+  font-size: 12px; font-weight: 600; color: var(--text-3); cursor: pointer;
+  border: 1px solid var(--border); background: transparent;
+}
+.sidebar-collapse:hover { background: var(--surface-2); color: var(--text-2); }
+@media (max-width: 900px) { .sidebar-collapse { display: none; } }
 
 .page-header {
   display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
@@ -181,10 +221,6 @@ html[data-theme="dark"] .clinic-logo { filter: brightness(0) invert(1); }
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; z-index: 40;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
-.brand-logo {
-  width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--brand), var(--purple)); font-size: 19px;
-}
 .brand-name { font-weight: 800; font-size: 16px; letter-spacing: -.2px; }
 .brand-sub { font-size: 11px; color: var(--text-3); }
 .nav { flex: 1; overflow-y: auto; padding: 4px 10px 10px; }

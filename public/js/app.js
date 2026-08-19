@@ -92,9 +92,10 @@ function renderLogin(message = '') {
   app.innerHTML = `
     <div class="login-wrap">
       <div class="login-card">
-        <div class="flex" style="margin-bottom:16px">
-          <div class="brand-logo" style="width:44px;height:44px;font-size:22px">🦷</div>
-          <div><h1>CRM מרפאה</h1><div class="sub">ניהול לידים, תורים ותקשורת במקום אחד</div></div>
+        <div class="center" style="margin-bottom:20px">
+          ${logoImg('clinic-logo login-logo')}
+          <h1>${esc(clinic().short_name || 'Clinic CRM')}</h1>
+          <div class="sub">${esc(clinic().subtitle || '')} · Clinic CRM</div>
         </div>
         <form id="login-form">
           <div class="field"><label>אימייל</label>
@@ -130,12 +131,13 @@ function renderLayout() {
   app.innerHTML = `
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand-block">
+        <a class="brand-block" href="#/dashboard" title="${esc(clinic().name || '')} — למסך הבית">
           ${logoImg()}
           <div class="brand-name">${esc(clinic().short_name || clinic().name || 'CRM מרפאה')}</div>
           <div class="brand-sub">${esc(clinic().subtitle || '')}</div>
           <div class="brand-crm">Clinic CRM</div>
-        </div>
+        </a>
+        <button class="sidebar-collapse" id="btn-collapse" title="הרחבה / צמצום התפריט"></button>
         <nav class="nav" id="nav"></nav>
         <div class="sidebar-foot">
           <div class="user-chip" id="user-chip">
@@ -151,7 +153,7 @@ function renderLayout() {
       </aside>
       <div class="main">
         <header class="topbar">
-          ${logoImg('topbar-logo clinic-logo')}
+          <a class="topbar-logo-link" href="#/dashboard" title="למסך הבית">${logoImg('topbar-logo clinic-logo')}</a>
           <h2 id="page-title">${t('dashboard')}</h2>
           <div class="search-box">
             <span class="ico">🔍</span>
@@ -172,6 +174,9 @@ function renderLayout() {
 
   renderNav();
   renderMobileNav();
+  applyCollapsed(localStorage.getItem('crm_sidebar') === 'collapsed');
+  $('#btn-collapse').addEventListener('click', () =>
+    applyCollapsed(!document.querySelector('.layout').classList.contains('collapsed')));
 
   $('#btn-theme').addEventListener('click', () =>
     applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
@@ -182,6 +187,21 @@ function renderLayout() {
 
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); $('#global-search').focus(); }
+  });
+}
+
+/** Rail mode: icons only, logo scaled down whole (never cropped). */
+function applyCollapsed(collapsed) {
+  const layout = document.querySelector('.layout');
+  if (!layout) return;
+  layout.classList.toggle('collapsed', collapsed);
+  localStorage.setItem('crm_sidebar', collapsed ? 'collapsed' : 'expanded');
+  const btn = $('#btn-collapse');
+  if (btn) btn.textContent = collapsed ? '»' : '« צמצום התפריט';
+  // Icon-only items need their label as a tooltip — the text, without the icon.
+  $$('.nav-item[data-route]').forEach((item) => {
+    const label = [...item.children].find((c) => !c.classList.contains('ico') && !c.classList.contains('nav-badge'));
+    item.title = collapsed ? (label?.textContent.trim() || '') : '';
   });
 }
 
