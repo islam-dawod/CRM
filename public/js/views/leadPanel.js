@@ -9,6 +9,7 @@ import {
   fmtRelative, fmtMoney, fmtNum, fmtDuration, fmtMinutes, toLocalInput, fromLocalInput,
   tempChip, sourceChip, scoreRing, empty, skeleton, toast, modal, formModal, confirmDialog,
 } from '../ui.js';
+import { openClinicSend, logoImg } from '../clinic.js';
 
 let currentId = null;
 let currentTab = 'overview';
@@ -100,10 +101,18 @@ function renderHead() {
       </div>
     </div>
 
-    <div class="flex-wrap" style="margin-top:12px">
+    <!-- Mobile: one button opens a sheet so the card stays uncluttered (spec §12) -->
+    <div style="margin-top:12px">
+      <button class="btn btn-primary btn-block btn-actions" data-act="sheet">⚡ פעולות</button>
+    </div>
+
+    <div class="flex-wrap lead-actions-desktop" style="margin-top:12px">
       <a class="btn btn-sm btn-primary" href="tel:${esc(lead.phone_norm || '')}" data-act="call">📞 התקשר</a>
       <button class="btn btn-sm btn-wa" data-act="wa">💬 WhatsApp</button>
       <button class="btn btn-sm" data-act="email" ${lead.email ? '' : 'disabled'}>✉️ מייל</button>
+      <button class="btn btn-sm" data-act="send-location">📍 שליחת מיקום</button>
+      <button class="btn btn-sm" data-act="send-card">💳 כרטיס המרפאה</button>
+      <button class="btn btn-sm" data-act="send-details">📲 פרטי המרפאה</button>
       <button class="btn btn-sm" data-act="appt">📅 קבע תור</button>
       <button class="btn btn-sm" data-act="task">⏰ קבע חזרה</button>
       <button class="btn btn-sm" data-act="log-call">📝 תיעוד שיחה</button>
@@ -121,13 +130,62 @@ function renderHead() {
   $('#lead-close', head).addEventListener('click', closePanel);
   head.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (!act) return;
-    if (act === 'wa') switchTab('whatsapp');
-    if (act === 'email') switchTab('email');
-    if (act === 'appt') appointmentModal();
-    if (act === 'task') taskModal();
-    if (act === 'log-call') logCallModal();
-    if (act === 'arrived') markArrived();
+    if (act) runAction(act);
+  });
+}
+
+/** Single place where a quick action is executed, shared by the row and the sheet. */
+function runAction(act) {
+  switch (act) {
+    case 'wa': return switchTab('whatsapp');
+    case 'email': return switchTab('email');
+    case 'appt': return appointmentModal();
+    case 'task': return taskModal();
+    case 'log-call': return logCallModal();
+    case 'arrived': return markArrived();
+    case 'sheet': return actionSheet();
+    case 'send-location':
+    case 'send-card':
+    case 'send-details': {
+      const kind = { 'send-location': 'location', 'send-card': 'card', 'send-details': 'details' }[act];
+      return openClinicSend(lead.id, kind, { lead, onSent: () => reload() });
+    }
+    case 'call':
+    default:
+      return undefined; // the phone link handles itself
+  }
+}
+
+/** Mobile actions sheet (spec §12) */
+function actionSheet() {
+  const items = [
+    { act: 'wa', icon: '💬', label: 'WhatsApp' },
+    { act: 'call-link', icon: '📞', label: 'התקשרות' },
+    { act: 'email', icon: '✉️', label: 'Email', disabled: !lead.email },
+    { act: 'send-location', icon: '📍', label: 'שליחת מיקום' },
+    { act: 'send-card', icon: '💳', label: 'כרטיס המרפאה' },
+    { act: 'send-details', icon: '📲', label: 'פרטי המרפאה' },
+    { act: 'appt', icon: '📅', label: 'קביעת פגישה' },
+    { act: 'task', icon: '⏰', label: 'קביעת חזרה' },
+    { act: 'log-call', icon: '📝', label: 'תיעוד שיחה' },
+  ];
+  const sheet = el(`
+    <div class="sheet-backdrop">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <div class="sheet-grip"></div>
+        ${items.map((i) => (i.act === 'call-link'
+          ? `<a class="sheet-item" href="tel:${esc(lead.phone_norm || '')}"><span class="ico">${i.icon}</span>${esc(i.label)}</a>`
+          : `<div class="sheet-item" data-sheet-act="${i.act}" style="${i.disabled ? 'opacity:.45;pointer-events:none' : ''}">
+               <span class="ico">${i.icon}</span>${esc(i.label)}</div>`)).join('')}
+      </div>
+    </div>`);
+  document.getElementById('modal-root').append(sheet);
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) return sheet.remove();
+    const item = e.target.closest('[data-sheet-act]');
+    if (!item) return;
+    sheet.remove();
+    runAction(item.dataset.sheetAct);
   });
 }
 
@@ -324,9 +382,10 @@ async function editLeadModal() {
 
 // -------------------------------------------------------------- timeline ---
 const TL_ICON = {
-  lead_created: '🎯', status: '🔄', call: '📞', whatsapp: '💬', email: '✉️',
+  lead_created: '🎯', status: '🔄', call: '📞', whatsapp: '💬', email: '✉️', sms: '📱',
   email_open: '👁️', email_click: '🔗', note: '📝', task: '⏰', appointment: '📅',
   assign: '👤', document: '📎', automation: '⚡', payment: '💰',
+  location: '📍', clinic_card: '💳', clinic_info: '📲', appointment_info: '📅',
 };
 
 async function tabTimeline(body) {
@@ -543,18 +602,33 @@ async function tabAppointments(body) {
               ${esc(APPT_STATUS_LABEL[a.status] || a.status)}</span>
           </div>
           ${a.notes ? `<div class="tl-body" style="margin-top:8px">${esc(a.notes)}</div>` : ''}
+          <!-- §8 — the same sends available directly next to the appointment -->
           <div class="flex-wrap" style="margin-top:10px">
+            <button class="btn btn-sm btn-wa" data-confirm-send="${a.id}">💬 שלח אישור</button>
+            <button class="btn btn-sm" data-send="appointment" data-appt-id="${a.id}">📅 תזכורת + פרטי פגישה</button>
+            <button class="btn btn-sm" data-send="location" data-appt-id="${a.id}">📍 שליחת מיקום</button>
+            <button class="btn btn-sm" data-send="card" data-appt-id="${a.id}">💳 כרטיס המרפאה</button>
+            <a class="btn btn-sm btn-ghost" href="/confirm/${esc(a.confirm_token)}" target="_blank">🔗 קישור אישור</a>
+          </div>
+          <div class="flex-wrap" style="margin-top:8px">
             ${['confirmed', 'arrived', 'no_show', 'cancelled', 'done']
               .filter((s) => s !== a.status)
-              .map((s) => `<button class="btn btn-sm" data-appt="${a.id}" data-status="${s}">${esc(APPT_STATUS_LABEL[s])}</button>`).join('')}
-            <button class="btn btn-sm btn-wa" data-confirm-send="${a.id}">💬 שלח אישור</button>
-            <a class="btn btn-sm btn-ghost" href="/confirm/${esc(a.confirm_token)}" target="_blank">🔗 קישור אישור</a>
+              .map((s) => `<button class="btn btn-sm btn-ghost" data-appt="${a.id}" data-status="${s}">${esc(APPT_STATUS_LABEL[s])}</button>`).join('')}
           </div>
         </div>`).join('') : empty('לא נקבעו תורים', '📅')}
     </div>`;
 
   $('#new-appt', body).addEventListener('click', appointmentModal);
   body.addEventListener('click', async (e) => {
+    const send = e.target.closest('[data-send]');
+    if (send) {
+      openClinicSend(lead.id, send.dataset.send, {
+        lead,
+        appointmentId: Number(send.dataset.apptId),
+        onSent: () => reload(),
+      });
+      return;
+    }
     const btn = e.target.closest('[data-appt]');
     if (btn) {
       await api.patch(`/api/appointments/${btn.dataset.appt}`, { status: btn.dataset.status });
@@ -562,8 +636,8 @@ async function tabAppointments(body) {
       await reload();
       return;
     }
-    const send = e.target.closest('[data-confirm-send]');
-    if (send) {
+    const confirmSend = e.target.closest('[data-confirm-send]');
+    if (confirmSend) {
       await api.post(`/api/leads/${lead.id}/whatsapp`, { template_key: 'appointment_confirm' });
       toast('הודעת אישור נשלחה', 'ok');
       await reload();

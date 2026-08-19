@@ -64,6 +64,29 @@ const WA_TEMPLATES = [
     'שלום {{first_name}}, נקבע עבורך תור במרפאה בתאריך {{appointment_date}} בשעה {{appointment_time}}. אנא אשר/י הגעה.'],
   ['price_quote', 'שליחת הצעת מחיר', 'he',
     'שלום {{first_name}}, מצורפת הצעת המחיר עבור {{treatment}}. נשמח לענות על כל שאלה.'],
+  // Spec §9 — appointment details, with address and both navigation links
+  ['appointment_details', 'פרטי פגישה', 'he',
+    'שלום {{first_name}},\nתזכורת לפגישה שלך ב{{clinic}}.\n\n' +
+    '📅 תאריך: {{appointment_date}}\n🕐 שעה: {{appointment_time}}\n📍 {{clinic_address}}\n\n' +
+    'Google Maps: {{maps_url}}\nWaze: {{waze_url}}\n💳 כרטיס המרפאה: {{card_url}}\n\n' +
+    'טלפון המרפאה:\n{{clinic_phone}}'],
+  ['clinic_location', 'שליחת מיקום המרפאה', 'he',
+    'שלום {{first_name}},\nמצורף המיקום של {{clinic}}.\n📍 {{clinic_address}}\n\n' +
+    'לניווט ב-Google Maps:\n{{maps_url}}\n\nלניווט ב-Waze:\n{{waze_url}}'],
+  ['clinic_card', 'שליחת כרטיס המרפאה', 'he',
+    'שלום {{first_name}},\nמצורף הכרטיס הדיגיטלי של {{clinic}}.\n' +
+    'בכרטיס ניתן למצוא פרטי קשר, מידע על המרפאה ודרכי הגעה.\n\n{{card_url}}'],
+  ['clinic_details', 'שליחת פרטי המרפאה', 'he',
+    'שלום {{first_name}},\n\n{{clinic}}\n{{clinic_subtitle}}\n📍 {{clinic_address}}\n📞 {{clinic_phone}}\n' +
+    '🌐 אתר המרפאה: {{website_url}}\n📍 Google Maps: {{maps_url}}\n🚗 Waze: {{waze_url}}\n' +
+    '💳 כרטיס דיגיטלי: {{card_url}}'],
+  ['appointment_details_ar', 'تفاصيل الموعد', 'ar',
+    'مرحباً {{first_name}}،\nتذكير بموعدك في {{clinic}}.\n\n' +
+    '📅 التاريخ: {{appointment_date}}\n🕐 الساعة: {{appointment_time}}\n📍 {{clinic_address}}\n\n' +
+    'Google Maps: {{maps_url}}\nWaze: {{waze_url}}\n\nهاتف العيادة:\n{{clinic_phone}}'],
+  ['clinic_location_ar', 'إرسال موقع العيادة', 'ar',
+    'مرحباً {{first_name}}،\nمرفق موقع {{clinic}}.\n📍 {{clinic_address}}\n\n' +
+    'للتنقل عبر Google Maps:\n{{maps_url}}\n\nللتنقل عبر Waze:\n{{waze_url}}'],
   ['new_lead_ar', 'عميل جديد — شكراً لتواصلك', 'ar',
     'مرحباً {{first_name}}، شكراً لتواصلك معنا بخصوص {{treatment}}. سيتواصل معك أحد ممثلي العيادة قريباً. 🦷'],
   ['no_answer_ar', 'لم يرد — متى يناسبك؟', 'ar',
@@ -186,16 +209,39 @@ export function seedReference() {
       active: 1,
     });
   }
-  if (setting('clinic') == null) {
-    setSetting('clinic', {
-      name: 'Elite Dental',
-      phone: '04-000-0000',
-      address: 'חיפה',
-      timezone: 'Asia/Jerusalem',
-      branches: ['ראשי', 'סניף צפון'],
-      default_lang: 'he',
-      country_code: '972',
-    });
+  // Clinic identity + every official link, in one place (spec §15, Clinic Links).
+  // Values taken from the clinic's own website: younisclinic.com
+  const CLINIC_DEFAULTS = {
+    name: 'מרפאת ד״ר תחסין יונס',
+    short_name: 'ד״ר תחסין יונס',
+    subtitle: 'מומחה לשיקום הפה',
+    phone: '054-334-5333',
+    whatsapp: '972543345333',
+    email: 'info.younisclinic@gmail.com',
+    address: 'שדרות הנשיא 28, חיפה',
+    website_url: 'https://younisclinic.com/',
+    maps_url: 'https://www.google.com/maps/search/?api=1&query=' +
+      encodeURIComponent('שדרות הנשיא 28, חיפה'),
+    waze_url: 'https://waze.com/ul?q=' + encodeURIComponent('שדרות הנשיא 28, חיפה') + '&navigate=yes',
+    // Not published on the website — the admin pastes it in Settings → Clinic Links.
+    digital_card_url: '',
+    medreviews_url: 'https://www.medreviews.co.il/provider/dr-tahsin-younis',
+    instagram_url: 'https://www.instagram.com/info.younisclinic/',
+    facebook_url: 'https://www.facebook.com/61584468176627/',
+    logo: '/assets/clinic-logo.png',
+    timezone: 'Asia/Jerusalem',
+    branches: ['ראשי'],
+    default_lang: 'he',
+    country_code: '972',
+  };
+  const existingClinic = setting('clinic');
+  if (existingClinic == null) {
+    setSetting('clinic', CLINIC_DEFAULTS);
+  } else {
+    // Existing installs: add any newly introduced key without touching edited values.
+    const merged = { ...CLINIC_DEFAULTS, ...existingClinic };
+    if (existingClinic.name === 'Elite Dental') Object.assign(merged, CLINIC_DEFAULTS);
+    if (JSON.stringify(merged) !== JSON.stringify(existingClinic)) setSetting('clinic', merged);
   }
   if (setting('assignment') == null) {
     setSetting('assignment', { mode: 'round_robin', last_user_id: null, by_specialty: false });

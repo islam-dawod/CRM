@@ -1,5 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
 import { insert, get, all, run } from '../db.js';
+import { clinicVars } from './clinic.js';
 
 // ---------------------------------------------------------------------------
 // Time — everything is stored as ISO-8601 UTC so plain string compares work
@@ -136,6 +137,8 @@ export function leadVars(lead) {
   const fmt = (d, opts) =>
     d ? new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', ...opts }).format(new Date(d)) : '';
   return {
+    // Clinic name, address and every official link come from the central config.
+    ...clinicVars(),
     first_name: lead.first_name || '',
     last_name: lead.last_name || '',
     full_name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
@@ -144,7 +147,6 @@ export function leadVars(lead) {
     city: lead.city || '',
     treatment: treatments.map(tName).join(' + '),
     owner: owner?.name || '',
-    clinic: 'Elite Dental',
     appointment_date: fmt(appt?.start_at, { day: '2-digit', month: '2-digit', year: 'numeric' }),
     appointment_time: fmt(appt?.start_at, { hour: '2-digit', minute: '2-digit', hour12: false }),
   };

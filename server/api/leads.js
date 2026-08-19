@@ -12,6 +12,7 @@ import {
   changeStatus, assignLead, sendWhatsapp, sendEmail, receiveMessage, intakeLead,
   resolveTreatments, leadName, createTask, runAutomations,
 } from '../lib/services.js';
+import { MESSAGE_KINDS, CHANNEL_LABEL, clinicConfig } from '../lib/clinic.js';
 
 const SORTS = {
   created_desc: 'l.created_at DESC',
@@ -462,6 +463,79 @@ export default function register(router) {
       subject: tpl.subject ? renderTemplate(tpl.subject, vars) : null,
       body: renderTemplate(tpl.body, vars),
     };
+  });
+
+  // -------------------------------------------------------------------------
+  // Clinic info: location / digital card / full details / appointment details
+  // Spec §2–§9, §13 — every send is logged to the timeline with actor + channel.
+  // -------------------------------------------------------------------------
+  router.get('/api/leads/:id/clinic-message', ({ req, params, query }) => {
+    const user = requireUser(req);
+    const lead = get('SELECT * FROM leads WHERE id=?', params.id);
+    if (!lead) throw notFound('lead');
+    assertLeadAccess(user, lead);
+    const kind = MESSAGE_KINDS[query.kind];
+    if (!kind) throw bad('unknown message kind');
+    const appt = query.appointment_id
+      ? get('SELECT * FROM appointments WHERE id=? AND lead_id=?', query.appointment_id, lead.id)
+      : get(`SELECT * FROM appointments WHERE lead_id=? AND status IN ('scheduled','confirmed')
+             AND start_at > ? ORDER BY start_at LIMIT 1`, lead.id, nowIso());
+    // A reminder without an appointment would be an empty shell — say so instead.
+    if (query.kind === 'appointment' && !appt) throw bad('אין פגישה עתידית לשליחת תזכורת');
+    return {
+      kind: query.kind,
+      subject: kind.subject,
+      body: kind.build(lead, appt),
+      clinic: clinicConfig(),
+      appointment: appt || null,
+    };
+  });
+
+  router.post('/api/leads/:id/clinic-send', async ({ req, params, body }) => {
+    const user = requireUser(req);
+    const lead = get('SELECT * FROM leads WHERE id=?', params.id);
+    if (!lead) throw notFound('lead');
+    assertLeadAccess(user, lead);
+
+    const kind = MESSAGE_KINDS[body.kind];
+    if (!kind) throw bad('unknown message kind');
+    const channel = body.channel || 'whatsapp';
+    if (!CHANNEL_LABEL[channel]) throw bad('unknown channel');
+
+    const appt = body.appointment_id
+      ? get('SELECT * FROM appointments WHERE id=? AND lead_id=?', body.appointment_id, lead.id)
+      : get(`SELECT * FROM appointments WHERE lead_id=? AND status IN ('scheduled','confirmed')
+             AND start_at > ? ORDER BY start_at LIMIT 1`, lead.id, nowIso());
+    if (body.kind === 'appointment' && !appt) throw bad('אין פגישה עתידית לשליחת תזכורת');
+    // The agent may edit the text before sending (spec §6).
+    const text = (body.body && String(body.body).trim()) || kind.build(lead, appt);
+    const subject = body.subject || kind.subject;
+
+    let message = null;
+    if (channel === 'whatsapp') {
+      message = await sendWhatsapp(lead.id, { body: text, userId: user.id });
+    } else if (channel === 'email') {
+      message = await sendEmail(lead.id, { subject, body: text, userId: user.id });
+    } else if (channel === 'sms') {
+      // No SMS gateway is configured; the message is recorded so the history stays complete.
+      const id = insert('messages', {
+        lead_id: lead.id, channel: 'sms', direction: 'out', user_id: user.id,
+        body: text, status: 'sent',
+      });
+      message = get('SELECT * FROM messages WHERE id=?', id);
+      run('UPDATE leads SET last_contact_at=?, updated_at=? WHERE id=?', nowIso(), nowIso(), lead.id);
+    }
+
+    // §4 + §13 — one clear timeline entry: what was sent, through which channel, by whom
+    addEvent(lead.id, kind.event,
+      `${kind.icon} ${kind.label} ${channel === 'copy' ? 'הועתק ללוח' : `נשלח ללקוח באמצעות ${CHANNEL_LABEL[channel]}`}`, {
+        actorId: user.id,
+        body: channel === 'copy' ? null : text,
+        meta: { kind: body.kind, channel, appointment_id: appt?.id || null, message_id: message?.id || null },
+      });
+    audit(user.id, 'lead', lead.id, `send_${body.kind}`, channel);
+    recomputeScore(lead.id);
+    return { ok: true, message, channel, kind: body.kind };
   });
 
   // Simulate an inbound customer reply — lets the whole flow be demoed offline

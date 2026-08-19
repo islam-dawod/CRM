@@ -5,6 +5,7 @@ import {
   hashPassword, verifyPassword, createSession, destroySession, requireUser, requirePerm, can, ROLES,
 } from '../lib/auth.js';
 import { audit, nowIso, slug, parseJson, token } from '../lib/util.js';
+import { clinicConfig } from '../lib/clinic.js';
 
 const publicUser = (u) =>
   u && {
@@ -57,7 +58,9 @@ export default function register(router) {
       treatments: all('SELECT * FROM treatments WHERE active=1 ORDER BY sort, id'),
       users: all('SELECT * FROM users WHERE active=1 ORDER BY id').map(publicUser),
       settings: {
-        clinic: setting('clinic', {}),
+        // clinicConfig() adds the derived Maps/Waze/WhatsApp links so the UI never
+        // builds them itself (spec §15).
+        clinic: clinicConfig(),
         sla: setting('sla', {}),
         assignment: setting('assignment', {}),
         integrations: can(user, 'automations.write') || user.role === 'admin'
@@ -328,7 +331,7 @@ export default function register(router) {
     const u = requireUser(req);
     if (u.role !== 'admin') throw forbidden();
     return {
-      clinic: setting('clinic', {}),
+      clinic: clinicConfig(),
       sla: setting('sla', {}),
       assignment: setting('assignment', {}),
       integrations: setting('integrations', {}),

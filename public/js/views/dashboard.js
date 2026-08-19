@@ -6,6 +6,7 @@ import {
   sourceChip, tempChip, toast, fresh,} from '../ui.js';
 import { openLead } from './leadPanel.js';
 import { newLeadModal } from '../app.js';
+import { logoImg, clinic } from '../clinic.js';
 
 const KPIS = [
   { key: 'new_today', label: 'לידים חדשים היום', color: '#3b82f6', filter: '#/leads?created=today' },
@@ -23,6 +24,14 @@ export async function render(view) {
   const { kpi, todayAppointments, dueTasks, newMessages, newLeads, idleAgents, bySource, daily } = data;
 
   view.innerHTML = `
+    <div class="page-header">
+      ${logoImg('clinic-logo', 'max-width:112px')}
+      <div>
+        <div class="ttl">${esc(clinic().short_name || clinic().name || '')} – Clinic CRM</div>
+        <div class="sub">${esc(clinic().subtitle || '')}${clinic().address ? ` · ${esc(clinic().address)}` : ''}</div>
+      </div>
+    </div>
+
     <div class="kpi-grid">
       ${KPIS.map((k) => `
         <div class="kpi" data-nav="${k.filter}">

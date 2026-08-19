@@ -6,6 +6,7 @@ import {
   $, $$, el, esc, toast, avatar, initials, fmtRelative, skeleton, tempChip,
 } from './ui.js';
 import { openLead } from './views/leadPanel.js';
+import { logoImg, clinic } from './clinic.js';
 
 const routes = {
   dashboard: () => import('./views/dashboard.js'),
@@ -21,6 +22,7 @@ const routes = {
   templates: () => import('./views/templates.js'),
   settings: () => import('./views/settings.js'),
   ai: () => import('./views/ai.js'),
+  clinicinfo: () => import('./views/clinicInfo.js'),
 };
 
 const NAV = [
@@ -37,6 +39,7 @@ const NAV = [
   { id: 'team', icon: '👥', label: 'team', perm: 'team' },
   { id: 'automation', icon: '⚡', label: 'automation', perm: 'automations' },
   { id: 'templates', icon: '📝', label: 'templates' },
+  { id: 'clinicinfo', icon: '🏥', label: 'clinic' },
   { id: 'ai', icon: '🤖', label: 'ai' },
   { id: 'settings', icon: '⚙️', label: 'settings', perm: 'admin' },
 ];
@@ -127,12 +130,11 @@ function renderLayout() {
   app.innerHTML = `
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-logo">🦷</div>
-          <div>
-            <div class="brand-name">${esc(store.settings?.clinic?.name || 'CRM מרפאה')}</div>
-            <div class="brand-sub">Leads & Patients CRM</div>
-          </div>
+        <div class="brand-block">
+          ${logoImg()}
+          <div class="brand-name">${esc(clinic().short_name || clinic().name || 'CRM מרפאה')}</div>
+          <div class="brand-sub">${esc(clinic().subtitle || '')}</div>
+          <div class="brand-crm">Clinic CRM</div>
         </div>
         <nav class="nav" id="nav"></nav>
         <div class="sidebar-foot">
@@ -149,6 +151,7 @@ function renderLayout() {
       </aside>
       <div class="main">
         <header class="topbar">
+          ${logoImg('topbar-logo clinic-logo')}
           <h2 id="page-title">${t('dashboard')}</h2>
           <div class="search-box">
             <span class="ico">🔍</span>

@@ -117,6 +117,52 @@ const section = (t) => console.log(`\n${t}`);
   const deal = await call('POST', `/api/leads/${leadId}/deals`, { amount: 14000, paid: 5000 });
   check('create deal', deal.status === 200 && deal.data[0].balance === 9000, JSON.stringify(deal.data[0]));
 
+  section('clinic branding + quick sends');
+  const clinicCfg = boot.data.settings.clinic;
+  check('clinic identity seeded', !!clinicCfg.name && !!clinicCfg.address && !!clinicCfg.phone);
+  check('maps link available', /^https?:\/\/.*maps/.test(clinicCfg.maps_url || ''), clinicCfg.maps_url);
+  check('waze link available', /^https?:\/\/.*waze/.test(clinicCfg.waze_url || ''), clinicCfg.waze_url);
+  check('logo served', (await fetch(`${BASE}${clinicCfg.logo}`)).status === 200, clinicCfg.logo);
+
+  // A reminder needs a future appointment; the earlier one was already marked arrived.
+  const future = await call('POST', '/api/appointments', {
+    lead_id: leadId, start_at: new Date(Date.now() + 3 * 86400000).toISOString(), duration_min: 45,
+  });
+  check('reminder is refused when there is no upcoming appointment',
+    (await call('POST', '/api/leads/999999/clinic-send', { kind: 'appointment' })).status >= 400);
+
+  for (const kind of ['location', 'card', 'details', 'appointment']) {
+    const preview = await call('GET', `/api/leads/${leadId}/clinic-message?kind=${kind}`);
+    check(`preview: ${kind}`, preview.status === 200 && preview.data.body.length > 20);
+    if (kind === 'location') {
+      check('location text carries both navigation links',
+        preview.data.body.includes(clinicCfg.maps_url) && preview.data.body.includes(clinicCfg.waze_url));
+    }
+    if (kind === 'appointment') {
+      check('appointment text carries date, time and address',
+        /תאריך/.test(preview.data.body) && /שעה/.test(preview.data.body)
+        && preview.data.body.includes(clinicCfg.address));
+    }
+  }
+
+  for (const [kind, channel] of [['location', 'whatsapp'], ['card', 'sms'], ['details', 'email'], ['location', 'copy']]) {
+    const sent = await call('POST', `/api/leads/${leadId}/clinic-send`, { kind, channel });
+    check(`send ${kind} via ${channel}`, sent.status === 200, JSON.stringify(sent.data).slice(0, 100));
+  }
+  const tl = (await call('GET', `/api/leads/${leadId}/timeline`)).data;
+  check('every send is logged to the timeline with an actor',
+    ['location', 'clinic_card', 'clinic_info'].every((type) =>
+      tl.some((e) => e.type === type && e.actor_name)));
+  check('timeline names the channel used',
+    tl.some((e) => e.type === 'location' && /WhatsApp/.test(e.title)));
+
+  check('appointment_details template seeded',
+    (await call('GET', '/api/templates?channel=whatsapp')).data.some((t) => t.key === 'appointment_details'));
+  const tpl = (await call('GET', '/api/templates?channel=whatsapp')).data.find((t) => t.key === 'clinic_location');
+  const rendered = await call('GET', `/api/leads/${leadId}/template/${tpl.id}`);
+  check('templates resolve clinic variables',
+    rendered.data.body.includes(clinicCfg.address) && !rendered.data.body.includes('{{'));
+
   section('search + filters');
   check('search by phone', (await call('GET', `/api/leads?q=${phone}`)).data.rows.some((r) => r.id === leadId));
   check('search by name', (await call('GET', '/api/leads?q=' + encodeURIComponent('בדיקה'))).data.rows.length > 0);

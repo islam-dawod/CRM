@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { store, doctors, APPT_STATUS_LABEL, APPT_STATUS_COLOR } from '../store.js';
 import { esc, fmtDateTime, fmtDate, fmtTime, empty, skeleton, toast, confirmDialog, fresh} from '../ui.js';
 import { openLead } from './leadPanel.js';
+import { openClinicSend } from '../clinic.js';
 
 let filter = { status: '', doctor: '', when: 'upcoming' };
 
@@ -80,12 +81,26 @@ async function load(view) {
               <button class="btn btn-sm btn-primary" data-set="${a.id}" data-status="arrived">✓ הגיע</button>
               <button class="btn btn-sm" data-set="${a.id}" data-status="no_show">לא הגיע</button>` : ''}
             ${a.status === 'arrived' ? `<button class="btn btn-sm" data-set="${a.id}" data-status="done">סיים טיפול</button>` : ''}
+            <button class="btn btn-sm btn-ghost" data-send="appointment" data-lead="${a.lead_id}" data-appt="${a.id}"
+              title="שליחת תזכורת עם פרטי הפגישה והמיקום">📅 תזכורת</button>
+            <button class="btn btn-sm btn-ghost" data-send="location" data-lead="${a.lead_id}" data-appt="${a.id}"
+              title="שליחת מיקום המרפאה">📍</button>
+            <button class="btn btn-sm btn-ghost" data-send="card" data-lead="${a.lead_id}" data-appt="${a.id}"
+              title="שליחת כרטיס המרפאה">💳</button>
           </div>
         </div>`).join('')}
       </div>
     </div>`).join('');
 
   body.addEventListener('click', async (e) => {
+    const send = e.target.closest('[data-send]');
+    if (send) {
+      openClinicSend(Number(send.dataset.lead), send.dataset.send, {
+        appointmentId: Number(send.dataset.appt),
+        onSent: () => load(view),
+      });
+      return;
+    }
     const set = e.target.closest('[data-set]');
     if (set) {
       try {

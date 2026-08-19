@@ -7,7 +7,7 @@ import {
 
 let tab = 'clinic';
 const TABS = [
-  ['clinic', '🏥 מרפאה'], ['statuses', '🔄 סטטוסים'], ['treatments', '🦷 טיפולים'],
+  ['clinic', '🏥 מרפאה'], ['links', '🔗 קישורי המרפאה'], ['statuses', '🔄 סטטוסים'], ['treatments', '🦷 טיפולים'],
   ['sla', '⏱️ SLA והתראות'], ['integrations', '🔌 חיבורים'], ['audit', '📜 יומן פעולות'],
 ];
 
@@ -28,6 +28,7 @@ async function load(view) {
   const body = view.querySelector('#set-body');
   const settings = await api.get('/api/settings');
   if (tab === 'clinic') return clinicTab(body, settings, view);
+  if (tab === 'links') return linksTab(body, settings, view);
   if (tab === 'statuses') return statusesTab(body, view);
   if (tab === 'treatments') return treatmentsTab(body, view);
   if (tab === 'sla') return slaTab(body, settings, view);
@@ -67,6 +68,61 @@ function clinicTab(body, settings, view) {
       branches: $('#c-branches', body).value.split(',').map((s) => s.trim()).filter(Boolean),
     });
     toast('נשמר — רענן כדי לראות את השם החדש', 'ok');
+  });
+}
+
+// ------------------------------------------------------------ clinic links --
+// Spec §15 + "Clinic Links": one screen that every button in the CRM reads from.
+const LINK_FIELDS = [
+  ['name', 'שם המרפאה', 'text'],
+  ['short_name', 'שם קצר (בתפריט)', 'text'],
+  ['subtitle', 'תת-כותרת', 'text'],
+  ['phone', 'טלפון', 'text'],
+  ['whatsapp', 'WhatsApp (מספר בינלאומי, ללא +)', 'text'],
+  ['email', 'אימייל', 'email'],
+  ['address', 'כתובת', 'text'],
+  ['website_url', 'אתר המרפאה', 'url'],
+  ['maps_url', 'Google Maps URL', 'url'],
+  ['waze_url', 'Waze URL', 'url'],
+  ['digital_card_url', 'כרטיס דיגיטלי URL', 'url'],
+  ['medreviews_url', 'MedReviews URL', 'url'],
+  ['instagram_url', 'Instagram URL', 'url'],
+  ['facebook_url', 'Facebook URL', 'url'],
+  ['logo', 'נתיב הלוגו', 'text'],
+];
+
+function linksTab(body, settings, view) {
+  const c = settings.clinic || {};
+  body.innerHTML = `
+    <div class="card card-pad" style="max-width:760px">
+      <div class="flex mb" style="gap:14px;align-items:center">
+        <img class="clinic-logo" src="${esc(c.logo || '/assets/clinic-logo.png')}" alt="לוגו"
+             style="max-width:130px" width="560" height="289">
+        <div>
+          <h3>קישורי המרפאה</h3>
+          <div class="tiny dim">כל כפתורי המערכת — מיקום, ניווט, כרטיס דיגיטלי ותבניות ההודעות —
+            מושכים את הפרטים מכאן. שינוי כאן מתעדכן בכל המערכת מיד.</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        ${LINK_FIELDS.map(([key, label, type]) => `
+          <div class="field"><label>${esc(label)}</label>
+            <input class="input" data-link="${key}" type="${type}" value="${esc(c[key] || '')}"
+                   dir="${type === 'url' || type === 'email' ? 'ltr' : 'auto'}"></div>`).join('')}
+      </div>
+      <div class="tiny dim mb">
+        אם Google Maps או Waze נשארים ריקים — המערכת בונה אותם אוטומטית מהכתובת.
+      </div>
+      <button class="btn btn-primary" id="l-save">שמירה</button>
+    </div>`;
+
+  $('#l-save', body).addEventListener('click', async () => {
+    const patch = { ...c };
+    $$('[data-link]', body).forEach((inp) => { patch[inp.dataset.link] = inp.value.trim(); });
+    await api.put('/api/settings/clinic', patch);
+    await refreshBootstrap();
+    toast('קישורי המרפאה נשמרו', 'ok');
+    render(view);
   });
 }
 
